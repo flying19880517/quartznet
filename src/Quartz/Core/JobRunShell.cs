@@ -92,13 +92,13 @@ namespace Quartz.Core
 			}
 			catch (SchedulerException se)
 			{
-				sched.NotifySchedulerListenersError(string.Format(CultureInfo.InvariantCulture, "An error occured instantiating job to be executed. job= '{0}'", jobDetail.Key), se);
+				sched.NotifySchedulerListenersError(string.Format(CultureInfo.InvariantCulture, "An error occurred instantiating job to be executed. job= '{0}'", jobDetail.Key), se);
 				throw;
 			}
 			catch (Exception e)
 			{
 				SchedulerException se = new SchedulerException(string.Format(CultureInfo.InvariantCulture, "Problem instantiating type '{0}'", jobDetail.JobType.FullName), e);
-				sched.NotifySchedulerListenersError(string.Format(CultureInfo.InvariantCulture, "An error occured instantiating job to be executed. job= '{0}'", jobDetail.Key), se);
+				sched.NotifySchedulerListenersError(string.Format(CultureInfo.InvariantCulture, "An error occurred instantiating job to be executed. job= '{0}'", jobDetail.Key), se);
 				throw se;
 			}
 
@@ -136,7 +136,7 @@ namespace Quartz.Core
                     catch (SchedulerException se)
                     {
                         qs.NotifySchedulerListenersError(
-                            string.Format(CultureInfo.InvariantCulture, "Error executing Job ({0}: couldn't begin execution.", jec.JobDetail.Key),
+                            string.Format(CultureInfo.InvariantCulture, "Error executing Job {0}: couldn't begin execution.", jec.JobDetail.Key),
                             se);
                         break;
                     }
@@ -167,7 +167,7 @@ namespace Quartz.Core
                         catch (SchedulerException se)
                         {
                             qs.NotifySchedulerListenersError(
-                                string.Format(CultureInfo.InvariantCulture, "Error during veto of Job ({0}: couldn't finalize execution.",
+                                string.Format(CultureInfo.InvariantCulture, "Error during veto of Job {0}: couldn't finalize execution.",
                                               jec.JobDetail.Key), se);
                         }
                         break;
@@ -198,7 +198,7 @@ namespace Quartz.Core
                         log.Error(string.Format(CultureInfo.InvariantCulture, "Job {0} threw an unhandled Exception: ", jobDetail.Key), e);
                         SchedulerException se = new SchedulerException("Job threw an unhandled exception.", e);
                         qs.NotifySchedulerListenersError(
-                            string.Format(CultureInfo.InvariantCulture, "Job ({0} threw an exception.", jec.JobDetail.Key), se);
+                            string.Format(CultureInfo.InvariantCulture, "Job {0} threw an exception.", jec.JobDetail.Key), se);
                         jobExEx = new JobExecutionException(se, false);
                     }
 
@@ -248,7 +248,7 @@ namespace Quartz.Core
                         catch (SchedulerException se)
                         {
                             qs.NotifySchedulerListenersError(
-                                string.Format(CultureInfo.InvariantCulture, "Error executing Job ({0}: couldn't finalize execution.",
+                                string.Format(CultureInfo.InvariantCulture, "Error executing Job {0}: couldn't finalize execution.",
                                               jec.JobDetail.Key), se);
                         }
                         continue;
@@ -261,7 +261,7 @@ namespace Quartz.Core
                     catch (SchedulerException se)
                     {
                         qs.NotifySchedulerListenersError(
-                            string.Format(CultureInfo.InvariantCulture, "Error executing Job ({0}: couldn't finalize execution.",
+                            string.Format(CultureInfo.InvariantCulture, "Error executing Job {0}: couldn't finalize execution.",
                                           jec.JobDetail.Key), se);
                         continue;
                     }

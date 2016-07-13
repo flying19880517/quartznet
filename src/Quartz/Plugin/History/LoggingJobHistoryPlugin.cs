@@ -28,7 +28,7 @@ using Quartz.Spi;
 namespace Quartz.Plugin.History
 {
     /// <summary>
-    /// Logs a history of all job executions (and execution vetos) via common
+    /// Logs a history of all job executions (and execution vetoes) via common
     /// logging.
     /// </summary>
     /// <remarks>
@@ -66,7 +66,7 @@ namespace Quartz.Plugin.History
     /// 			<tr>
     /// 				<td>4</td>
     /// 				<td>String</td>
-    /// 				<td>The Triggers's group.</td>
+    /// 				<td>The Trigger's group.</td>
     /// 			</tr>
     /// 			<tr>
     /// 				<td>5</td>
@@ -84,8 +84,7 @@ namespace Quartz.Plugin.History
     /// 				<td>The re-fire count from the JobExecutionContext.</td>
     /// 			</tr>
     /// 		</table>
-    /// The default message text is <i>"Job {1}.{0} fired (by trigger {4}.{3}) at:
-    /// {2, date, HH:mm:ss MM/dd/yyyy"</i>
+    /// The default message text is <i>"Job {1}.{0} fired (by trigger {4}.{3}) at: {2:HH:mm:ss MM/dd/yyyy}"</i>
     /// 	</para>
     /// 	<para>
     /// JobSuccessMessage - available message data are: <table>
@@ -117,7 +116,7 @@ namespace Quartz.Plugin.History
     /// 			<tr>
     /// 				<td>4</td>
     /// 				<td>String</td>
-    /// 				<td>The Triggers's group.</td>
+    /// 				<td>The Trigger's group.</td>
     /// 			</tr>
     /// 			<tr>
     /// 				<td>5</td>
@@ -142,8 +141,7 @@ namespace Quartz.Plugin.History
     /// result was set.</td>
     /// 			</tr>
     /// 		</table>
-    /// The default message text is <i>"Job {1}.{0} execution complete at {2, date,
-    /// HH:mm:ss MM/dd/yyyy} and reports: {8"</i>
+    /// The default message text is <i>"Job {1}.{0} execution complete at {2:HH:mm:ss MM/dd/yyyy} and reports: {8}"</i>
     /// 	</para>
     /// 	<para>
     /// JobFailedMessage - available message data are: <table>
@@ -175,7 +173,7 @@ namespace Quartz.Plugin.History
     /// 			<tr>
     /// 				<td>4</td>
     /// 				<td>String</td>
-    /// 				<td>The Triggers's group.</td>
+    /// 				<td>The Trigger's group.</td>
     /// 			</tr>
     /// 			<tr>
     /// 				<td>5</td>
@@ -199,8 +197,7 @@ namespace Quartz.Plugin.History
     /// </td>
     /// 			</tr>
     /// 		</table>
-    /// The default message text is <i>"Job {1}.{0} execution failed at {2, date,
-    /// HH:mm:ss MM/dd/yyyy} and reports: {8"</i>
+    /// The default message text is <i>"Job {1}.{0} execution failed at {2:HH:mm:ss MM/dd/yyyy} and reports: {8}"</i>
     /// 	</para>
     /// 	<para>
     /// JobWasVetoedMessage - available message data are: <table>
@@ -232,7 +229,7 @@ namespace Quartz.Plugin.History
     /// 			<tr>
     /// 				<td>4</td>
     /// 				<td>String</td>
-    /// 				<td>The Triggers's group.</td>
+    /// 				<td>The Trigger's group.</td>
     /// 			</tr>
     /// 			<tr>
     /// 				<td>5</td>
@@ -251,7 +248,7 @@ namespace Quartz.Plugin.History
     /// 			</tr>
     /// 		</table>
     /// The default message text is <i>"Job {1}.{0} was vetoed.  It was to be fired 
-    /// (by trigger {4}.{3}) at: {2, date, HH:mm:ss MM/dd/yyyy"</i>
+    /// (by trigger {4}.{3}) at: {2:HH:mm:ss MM/dd/yyyy}"</i>
     /// 	</para>
     /// </remarks>
     /// <author>Marko Lahma (.NET)</author>
@@ -436,7 +433,7 @@ namespace Quartz.Plugin.History
         /// <summary>
         /// Called by the <see cref="IScheduler" /> when a <see cref="IJobDetail" />
         /// was about to be executed (an associated <see cref="ITrigger" />
-        /// has occured), but a <see cref="ITriggerListener" /> vetoed it's
+        /// has occurred), but a <see cref="ITriggerListener" /> vetoed it's
         /// execution.
         /// </summary>
         /// <param name="context"></param>

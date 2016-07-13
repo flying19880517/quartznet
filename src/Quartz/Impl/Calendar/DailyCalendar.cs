@@ -71,13 +71,13 @@ namespace Quartz.Impl.Calendar
         private int rangeEndingSecond;
         private int rangeEndingMillis;
 
-        private bool invertTimeRange = false;
+        private bool invertTimeRange;
 
 
         /// <summary>
         /// Create a <see cref="DailyCalendar" /> with a time range defined by the
         /// specified strings and no baseCalendar. 
-        ///	<param name="rangeStartingTime" /> and <param name="rangeEndingTime" />
+        ///	<paramref name="rangeStartingTime" /> and <paramref name="rangeEndingTime" />
         /// must be in the format &quot;HH:MM[:SS[:mmm]]&quot; where:
         /// <ul>
         ///     <li>
@@ -105,6 +105,8 @@ namespace Quartz.Impl.Calendar
         ///     </li>  
         /// </ul>
         /// </summary>
+        /// <param name="rangeStartingTime">The range starting time in millis.</param>
+        /// <param name="rangeEndingTime">The range ending time in millis.</param>
         public DailyCalendar(string rangeStartingTime, string rangeEndingTime)
         {
             SetTimeRange(rangeStartingTime, rangeEndingTime);
@@ -113,7 +115,7 @@ namespace Quartz.Impl.Calendar
         /// <summary>
         /// Create a <see cref="DailyCalendar"/> with a time range defined by the
         /// specified strings and the specified baseCalendar.
-        /// <param name="rangeStartingTime"/> and <param name="rangeEndingTime"/>
+        /// <paramref name="rangeStartingTime"/> and <paramref name="rangeEndingTime"/>
         /// must be in the format "HH:MM[:SS[:mmm]]" where:
         /// <ul>
         /// 		<li>
@@ -145,6 +147,8 @@ namespace Quartz.Impl.Calendar
         /// </summary>
         /// <param name="baseCalendar">The base calendar for this calendar instance see BaseCalendar for more
         /// information on base calendar functionality.</param>
+        /// <param name="rangeStartingTime">The range starting time in millis.</param>
+        /// <param name="rangeEndingTime">The range ending time in millis.</param>
         public DailyCalendar(ICalendar baseCalendar, string rangeStartingTime, string rangeEndingTime) : base(baseCalendar)
         {
             SetTimeRange(rangeStartingTime, rangeEndingTime);
@@ -198,7 +202,7 @@ namespace Quartz.Impl.Calendar
 
         /// <summary>
         /// Create a <see cref="DailyCalendar"/> with a time range defined by the
-        /// specified values and the specified <param name="baseCalendar"/>. Values are
+        /// specified values and the specified <paramref name="baseCalendar"/>. Values are
         /// subject to the following validations:
         /// <ul>
         /// 		<li>
@@ -215,6 +219,8 @@ namespace Quartz.Impl.Calendar
         /// </li>
         /// 	</ul>
         /// </summary>
+        /// <param name="baseCalendar">The base calendar for this calendar instance see BaseCalendar for more
+        /// information on base calendar functionality.</param>
         /// <param name="rangeStartingHourOfDay">The range starting hour of day.</param>
         /// <param name="rangeStartingMinute">The range starting minute.</param>
         /// <param name="rangeStartingSecond">The range starting second.</param>
@@ -275,7 +281,7 @@ namespace Quartz.Impl.Calendar
         /// <summary>
         /// Create a <see cref="DailyCalendar"/> with a time range defined by the
         /// specified <see cref="DateTime"/>s and the specified
-        /// <param name="baseCalendar"/>. The Calendars are subject to the following
+        /// <paramref name="baseCalendar"/>. The Calendars are subject to the following
         /// considerations:
         /// <ul>
         /// 		<li>
@@ -292,6 +298,8 @@ namespace Quartz.Impl.Calendar
         /// 		</li>
         /// 	</ul>
         /// </summary>
+        /// <param name="baseCalendar">The base calendar for this calendar instance see BaseCalendar for more
+        /// information on base calendar functionality.</param>
         /// <param name="rangeStartingCalendarUtc">The range starting calendar.</param>
         /// <param name="rangeEndingCalendarUtc">The range ending calendar.</param>
         public DailyCalendar(ICalendar baseCalendar,
@@ -328,7 +336,7 @@ namespace Quartz.Impl.Calendar
 
         /// <summary>
         /// Create a <see cref="DailyCalendar"/> with a time range defined by the
-        /// specified values and the specified <param name="baseCalendar"/>. The values
+        /// specified values and the specified <paramref name="baseCalendar"/>. The values
         /// are subject to the following considerations:
         /// <ul>
         /// 		<li>
@@ -344,6 +352,8 @@ namespace Quartz.Impl.Calendar
         /// 		</li>
         /// 	</ul>
         /// </summary>
+        /// <param name="baseCalendar">The base calendar for this calendar instance see BaseCalendar for more
+        /// information on base calendar functionality.</param>
         /// <param name="rangeStartingTimeInMillis">The range starting time in millis.</param>
         /// <param name="rangeEndingTimeInMillis">The range ending time in millis.</param>
         public DailyCalendar(ICalendar baseCalendar,
@@ -551,7 +561,7 @@ namespace Quartz.Impl.Calendar
 
         /// <summary>
         /// Returns the start time of the time range of the day 
-        /// specified in <param name="timeUtc" />.
+        /// specified in <paramref name="timeUtc" />.
         /// </summary>
         /// <returns>
         ///     a DateTime representing the start time of the
@@ -567,7 +577,7 @@ namespace Quartz.Impl.Calendar
 
         /// <summary>
         /// Returns the end time of the time range of the day
-        /// specified in <param name="timeUtc" />
+        /// specified in <paramref name="timeUtc" />
         /// </summary>
         /// <returns>
         /// A DateTime representing the end time of the
@@ -631,7 +641,7 @@ namespace Quartz.Impl.Calendar
             buffer.Append(rangeEndingSecond.ToString(TwoDigitFormat, CultureInfo.InvariantCulture));
             buffer.Append(":");
             buffer.Append(rangeEndingMillis.ToString(ThreeDigitFormat, CultureInfo.InvariantCulture));
-            buffer.AppendFormat("', inverted: {0}]", invertTimeRange);
+            buffer.AppendFormat("', inverted: {0}", invertTimeRange);
             return buffer.ToString();
         }
 
@@ -645,15 +655,13 @@ namespace Quartz.Impl.Calendar
         public void SetTimeRange(string rangeStartingTimeString,
                                   string rangeEndingTimeString)
         {
-            string[] rangeStartingTime;
             int rangeStartingSecond;
             int rangeStartingMillis;
 
-            string[] rangeEndingTime;
             int rangeEndingSecond;
             int rangeEndingMillis;
 
-            rangeStartingTime = rangeStartingTimeString.Split(Colon);
+            var rangeStartingTime = rangeStartingTimeString.Split(Colon);
 
             if ((rangeStartingTime.Length < 2) || (rangeStartingTime.Length > 4))
             {
@@ -680,7 +688,7 @@ namespace Quartz.Impl.Calendar
                 rangeStartingMillis = 0;
             }
 
-            rangeEndingTime = rangeEndingTimeString.Split(Colon);
+            var rangeEndingTime = rangeEndingTimeString.Split(Colon);
 
             if ((rangeEndingTime.Length < 2) || (rangeEndingTime.Length > 4))
             {
@@ -822,7 +830,7 @@ namespace Quartz.Impl.Calendar
         }
 
         /// <summary>
-        /// Gets the end of day, pratically sets time parts to maximum allowed values.
+        /// Gets the end of day, practically sets time parts to maximum allowed values.
         /// </summary>
         /// <param name="time">The time.</param>
         /// <returns></returns>
@@ -897,7 +905,7 @@ namespace Quartz.Impl.Calendar
 
         public override bool Equals(object obj)
         {
-            if ((obj == null) || !(obj is DailyCalendar))
+            if (!(obj is DailyCalendar))
                 return false;
             else
                 return Equals((DailyCalendar)obj);

@@ -47,7 +47,6 @@ namespace Quartz.Impl.Triggers
         private int repeatCount;
         private TimeSpan repeatInterval = TimeSpan.Zero;
         private int timesTriggered;
-        private bool complete = false;
 
         /// <summary>
         /// Create a <see cref="SimpleTriggerImpl" /> with no settings.
@@ -75,7 +74,7 @@ namespace Quartz.Impl.Triggers
 
         /// <summary>
         /// Create a <see cref="SimpleTriggerImpl" /> that will occur immediately, and
-        /// repeat at the the given interval the given number of times.
+        /// repeat at the given interval the given number of times.
         /// </summary>
         public SimpleTriggerImpl(string name, int repeatCount, TimeSpan repeatInterval)
             : this(name, null, repeatCount, repeatInterval)
@@ -84,7 +83,7 @@ namespace Quartz.Impl.Triggers
 
         /// <summary>
         /// Create a <see cref="SimpleTriggerImpl" /> that will occur immediately, and
-        /// repeat at the the given interval the given number of times.
+        /// repeat at the given interval the given number of times.
         /// </summary>
         public SimpleTriggerImpl(string name, string group, int repeatCount, TimeSpan repeatInterval)
             : this(name, group, SystemTime.UtcNow(), null, repeatCount, repeatInterval)
@@ -111,7 +110,7 @@ namespace Quartz.Impl.Triggers
 
         /// <summary>
         /// Create a <see cref="SimpleTriggerImpl" /> that will occur at the given time,
-        /// and repeat at the the given interval the given number of times, or until
+        /// and repeat at the given interval the given number of times, or until
         /// the given end time.
         /// </summary>
         /// <param name="name">The name.</param>
@@ -129,7 +128,7 @@ namespace Quartz.Impl.Triggers
 
         /// <summary>
         /// Create a <see cref="SimpleTriggerImpl" /> that will occur at the given time,
-        /// and repeat at the the given interval the given number of times, or until
+        /// and repeat at the given interval the given number of times, or until
         /// the given end time.
         /// </summary>
         /// <param name="name">The name.</param>
@@ -152,7 +151,7 @@ namespace Quartz.Impl.Triggers
 
         /// <summary>
         /// Create a <see cref="SimpleTriggerImpl" /> that will occur at the given time,
-        /// fire the identified <see cref="IJob" /> and repeat at the the given
+        /// fire the identified <see cref="IJob" /> and repeat at the given
         /// interval the given number of times, or until the given end time.
         /// </summary>
         /// <param name="name">The name.</param>
@@ -178,7 +177,7 @@ namespace Quartz.Impl.Triggers
         }
 
         /// <summary>
-        /// Get or set thhe number of times the <see cref="SimpleTriggerImpl" /> should
+        /// Get or set the number of times the <see cref="SimpleTriggerImpl" /> should
         /// repeat, after which it will be automatically deleted.
         /// </summary>
         /// <seealso cref="RepeatIndefinitely" />
@@ -198,7 +197,7 @@ namespace Quartz.Impl.Triggers
         }
 
         /// <summary>
-        /// Get or set the the time interval at which the <see cref="ISimpleTrigger" /> should repeat.
+        /// Get or set the time interval at which the <see cref="ISimpleTrigger" /> should repeat.
         /// </summary>
         public TimeSpan RepeatInterval
         {
@@ -335,7 +334,7 @@ namespace Quartz.Impl.Triggers
 		/// <li>If the Repeat Count is 0, then the instruction will
         /// be interpreted as <see cref="MisfireInstruction.SimpleTrigger.FireNow" />.</li>
 		/// <li>If the Repeat Count is <see cref="RepeatIndefinitely" />, then
-        /// the instruction will be interpreted as <see cref="MisfireInstruction.SimpleTrigger.RescheduleNowWithRemainingRepeatCount" />.
+        /// the instruction will be interpreted as <see cref="MisfireInstruction.SimpleTrigger.RescheduleNextWithRemainingCount" />.
         /// <b>WARNING:</b> using MisfirePolicy.SimpleTrigger.RescheduleNowWithRemainingRepeatCount 
 		/// with a trigger that has a non-null end-time may cause the trigger to 
 		/// never fire again if the end-time arrived during the misfire time span. 
@@ -618,11 +617,6 @@ namespace Quartz.Impl.Triggers
 		/// </summary>
         public override DateTimeOffset? GetFireTimeAfter(DateTimeOffset? afterTimeUtc)
 		{
-			if (complete)
-			{
-				return null;
-			}
-
 			if ((timesTriggered > repeatCount) && (repeatCount != RepeatIndefinitely))
 			{
 				return null;

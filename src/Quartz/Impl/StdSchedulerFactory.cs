@@ -46,7 +46,7 @@ namespace Quartz.Impl
     /// <para>
     /// By default a properties are loaded from App.config's quartz section. 
     /// If that fails, then the file is loaded "quartz.properties". If file does not exist,
-    /// default configration located (as a embedded resource) in Quartz.dll is loaded. If you
+    /// default configuration located (as a embedded resource) in Quartz.dll is loaded. If you
     /// wish to use a file other than these defaults, you must define the system
     /// property 'quartz.properties' to point to the file you want.
     /// </para>
@@ -55,7 +55,7 @@ namespace Quartz.Impl
     /// information about the various settings available within the file.
     /// </para>
     /// <para>
-    /// Alternativly, you can explicitly Initialize the factory by calling one of
+    /// Alternatively, you can explicitly Initialize the factory by calling one of
     /// the <see cref="Initialize()" /> methods before calling <see cref="GetScheduler()" />.
     /// </para>
     /// <para>
@@ -77,6 +77,7 @@ namespace Quartz.Impl
     public class StdSchedulerFactory : ISchedulerFactory
     {
         private const string ConfigurationKeyPrefix = "quartz.";
+        private const string ConfigurationKeyPrefixServer = "quartz.server";
         public const string ConfigurationSectionName = "quartz";
         public const string PropertiesFile = "quartz.config";
         public const string PropertySchedulerInstanceName = "quartz.scheduler.instanceName";
@@ -108,6 +109,7 @@ namespace Quartz.Impl
         public const string PropertySchedulerName = "schedName";
         public const string PropertyJobStoreType = "quartz.jobStore.type";
         public const string PropertyDataSourcePrefix = "quartz.dataSource";
+        public const string PropertyDbProvider = "quartz.dbprovider";
         public const string PropertyDbProviderType = "connectionProvider.type";
         public const string PropertyDataSourceProvider = "provider";
         public const string PropertyDataSourceConnectionString = "connectionString";
@@ -312,10 +314,10 @@ Please add configuration to your application config file to correctly initialize
                 }
             }
 
-            // now check against allowed))
+            // now check against allowed
             foreach (string configurationKey in cfg.UnderlyingProperties.AllKeys)
             {
-                if (!configurationKey.StartsWith(ConfigurationKeyPrefix))
+                if (!configurationKey.StartsWith(ConfigurationKeyPrefix) || configurationKey.StartsWith(ConfigurationKeyPrefixServer))
                 {
                     // don't bother if truly unknown property
                     continue;
@@ -670,7 +672,8 @@ Please add configuration to your application config file to correctly initialize
                 throw initException;
             }
 
-            if (js is JobStoreSupport)
+            JobStoreSupport jobStoreSupport = js as JobStoreSupport;
+            if (jobStoreSupport != null)
             {
                 // Install custom lock handler (Semaphore)
                 Type lockHandlerType = loadHelper.LoadType(cfg.GetStringProperty(PropertyJobStoreLockHandlerType));
@@ -684,7 +687,7 @@ Please add configuration to your application config file to correctly initialize
                         if (cWithDbProvider != null)
                         {
                             // takes db provider
-                            IDbProvider dbProvider = DBConnectionManager.Instance.GetDbProvider(((JobStoreSupport) js).DataSource);
+                            IDbProvider dbProvider = DBConnectionManager.Instance.GetDbProvider(jobStoreSupport.DataSource);
                             lockHandler = (ISemaphore) cWithDbProvider.Invoke(new object[] { dbProvider });
                         }
                         else
@@ -697,7 +700,7 @@ Please add configuration to your application config file to correctly initialize
                         // If this lock handler requires the table prefix, add it to its properties.
                         if (lockHandler is ITablePrefixAware)
                         {
-                            tProps[PropertyTablePrefix] = ((JobStoreSupport) js).TablePrefix;
+                            tProps[PropertyTablePrefix] = jobStoreSupport.TablePrefix;
                             tProps[PropertySchedulerName] = schedName;
                         }
 
@@ -711,7 +714,7 @@ Please add configuration to your application config file to correctly initialize
                             throw initException;
                         }
 
-                        ((JobStoreSupport) js).LockHandler = lockHandler;
+                        jobStoreSupport.LockHandler = lockHandler;
                         Log.Info("Using custom data access locking (synchronization): " + lockHandlerType);
                     }
                     catch (Exception e)
@@ -931,14 +934,13 @@ Please add configuration to your application config file to correctly initialize
                     }
                 }
 
-            
-                if (js is JobStoreSupport)
+                jobStoreSupport = js as JobStoreSupport;
+                if (jobStoreSupport != null)
                 {
-                    JobStoreSupport jjs = (JobStoreSupport) js;
-                    jjs.DbRetryInterval = dbFailureRetry;
-                    jjs.ThreadExecutor = threadExecutor;
+                    jobStoreSupport.DbRetryInterval = dbFailureRetry;
+                    jobStoreSupport.ThreadExecutor = threadExecutor;
                     // object serializer
-                    jjs.ObjectSerializer = objectSerializer; 
+                    jobStoreSupport.ObjectSerializer = objectSerializer; 
                 }
 
                 QuartzSchedulerResources rsrcs = new QuartzSchedulerResources();

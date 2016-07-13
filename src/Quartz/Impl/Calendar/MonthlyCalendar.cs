@@ -47,7 +47,7 @@ namespace Quartz.Impl.Calendar
         private bool[] excludeDays = new bool[MaxDaysInMonth];
 
         // Will be set to true, if all week days are excluded
-        private bool excludeAll = false;
+        private bool excludeAll;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="MonthlyCalendar"/> class.
@@ -135,7 +135,7 @@ namespace Quartz.Impl.Calendar
         }
 
         /// <summary>
-        /// Return true, if mday is defined to be exluded.
+        /// Return true, if day is defined to be excluded.
         /// </summary>
         public virtual bool IsDayExcluded(int day)
         {
@@ -275,7 +275,7 @@ namespace Quartz.Impl.Calendar
             //a little trick here : Monthly calendar knows nothing
             //about the precise month it is dealing with, so
             //FebruaryCalendars will be only equal if their
-            // 31st days are equally included ))
+            //31st days are equally included
             //but that's not going to be a problem since 
             //there's no need to redefine default value of false
             //for such days
@@ -291,7 +291,7 @@ namespace Quartz.Impl.Calendar
 
         public override bool Equals(object obj)
         {
-            if ((obj == null) || !(obj is MonthlyCalendar))
+            if (!(obj is MonthlyCalendar))
             {
                 return false;
             }

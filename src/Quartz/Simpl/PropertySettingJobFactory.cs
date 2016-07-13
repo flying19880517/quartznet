@@ -59,14 +59,14 @@ namespace Quartz.Simpl
 	    /// <summary> 
 	    /// Whether the JobInstantiation should fail and throw and exception if
 	    /// a key (name) and value (type) found in the JobDataMap does not 
-	    /// correspond to a proptery setter on the Job class.
+	    /// correspond to a property setter on the Job class.
 	    /// </summary>
 	    public virtual bool ThrowIfPropertyNotFound { get; set; }
 
 	    /// <summary> 
 	    /// Get or set whether a warning should be logged if
 	    /// a key (name) and value (type) found in the JobDataMap does not 
-	    /// correspond to a proptery setter on the Job class.
+	    /// correspond to a property setter on the Job class.
 	    /// </summary>
 	    public virtual bool WarnIfPropertyNotFound { get; set; }
 
@@ -77,12 +77,12 @@ namespace Quartz.Simpl
 	    /// <remarks>
 	    /// <para>
 	    /// It should be extremely rare for this method to throw an exception -
-	    /// basically only the the case where there is no way at all to instantiate
+	    /// basically only the case where there is no way at all to instantiate
 	    /// and prepare the Job for execution.  When the exception is thrown, the
 	    /// Scheduler will move all triggers associated with the Job into the
 	    /// <see cref="TriggerState.Error" /> state, which will require human
 	    /// intervention (e.g. an application restart after fixing whatever
-	    /// configuration problem led to the issue wih instantiating the Job.
+	    /// configuration problem led to the issue with instantiating the Job).
 	    /// </para>
 	    /// </remarks>
 	    /// <param name="bundle">The TriggerFiredBundle from which the <see cref="IJobDetail" />
@@ -136,7 +136,7 @@ namespace Quartz.Simpl
 						// cannot set null to these
 						HandleError(string.Format(CultureInfo.InvariantCulture, "Cannot set null to property on Job class {0} for property '{1}'", obj.GetType(), name));
 					}
-					if (paramType == typeof(char) && o!= null && o is string && ((string) o).Length != 1)
+					if (paramType == typeof(char) && o is string && ((string) o).Length != 1)
 					{
 						// handle special case
 						HandleError(string.Format(CultureInfo.InvariantCulture, "Cannot set empty string to char property on Job class {0} for property '{1}'", obj.GetType(), name));
@@ -152,41 +152,30 @@ namespace Quartz.Simpl
 				{
 					HandleError(
 							string.Format(CultureInfo.InvariantCulture, "The setter on Job class {0} for property '{1}' expects a {2} but was given {3}", obj.GetType(), name, paramType, o), nfe);
-
-					continue;
 				}
 				catch (MethodAccessException)
 				{
                     HandleError(string.Format(CultureInfo.InvariantCulture, "The setter on Job class {0} for property '{1}' expects a {2} but was given a {3}", obj.GetType(), name, paramType, o.GetType()));
-
-					continue;
 				}
 				catch (ArgumentException e)
 				{
 					HandleError(
 							string.Format(CultureInfo.InvariantCulture, "The setter on Job class {0} for property '{1}' expects a {2} but was given {3}", obj.GetType(), name, paramType, o.GetType()), e);
-
-					continue;
 				}
 				catch (UnauthorizedAccessException e)
 				{
 					HandleError(
 							string.Format(CultureInfo.InvariantCulture, "The setter on Job class {0} for property '{1}' could not be accessed.", obj.GetType(), name), e);
-					continue;
 				}
 				catch (TargetInvocationException e)
 				{
 					HandleError(
 							string.Format(CultureInfo.InvariantCulture, "The setter on Job class {0} for property '{1}' could not be accessed.", obj.GetType(), name), e);
-					
-					continue;
 				}
                 catch (Exception e)
                 {
                     HandleError(
                             string.Format(CultureInfo.InvariantCulture, "The setter on Job class {0} for property '{1}' threw exception when processing.", obj.GetType(), name), e);
-
-                    continue;
                 }
 			}
 		}

@@ -56,7 +56,7 @@ namespace Quartz.Core
         private static readonly TimeSpan DefaultIdleWaitTime = TimeSpan.FromSeconds(30);
 
         private TimeSpan idleWaitTime = DefaultIdleWaitTime;
-        private int idleWaitVariablness = 7*1000;
+        private int idleWaitVariableness = 7*1000;
 
         /// <summary>
         /// Gets the log.
@@ -77,7 +77,7 @@ namespace Quartz.Core
             set
             {
                 idleWaitTime = value;
-                idleWaitVariablness = (int) (value.TotalMilliseconds*0.2);
+                idleWaitVariableness = (int) (value.TotalMilliseconds*0.2);
             }
         }
 
@@ -87,7 +87,7 @@ namespace Quartz.Core
         /// <value>The randomized idle wait time.</value>
         private TimeSpan GetRandomizedIdleWaitTime()
         {
-            return idleWaitTime - TimeSpan.FromMilliseconds(random.Next(idleWaitVariablness));
+            return idleWaitTime - TimeSpan.FromMilliseconds(random.Next(idleWaitVariableness));
         }
 
         /// <summary>
@@ -200,7 +200,7 @@ namespace Quartz.Core
 
         /// <summary>
         /// Signals the main processing loop that a change in scheduling has been
-        /// made - in order to interrupt any sleeping that may be occuring while
+        /// made - in order to interrupt any sleeping that may be occurring while
         /// waiting for the fire time to arrive.
         /// </summary>
         /// <param name="candidateNewNextFireTimeUtc">
@@ -280,7 +280,7 @@ namespace Quartz.Core
                     int availThreadCount = qsRsrcs.ThreadPool.BlockForAvailableThreads();
                     if (availThreadCount > 0) // will always be true, due to semantics of blockForAvailableThreads...
                     {
-                        IList<IOperableTrigger> triggers = null;
+                        IList<IOperableTrigger> triggers;
 
                         DateTimeOffset now = SystemTime.UtcNow();
 
@@ -320,7 +320,7 @@ namespace Quartz.Core
                             DateTimeOffset triggerTime = triggers[0].GetNextFireTimeUtc().Value;
                             TimeSpan timeUntilTrigger =  triggerTime - now;
 
-                            while (timeUntilTrigger > TimeSpan.FromMilliseconds(2)) 
+                            while (timeUntilTrigger > TimeSpan.Zero) 
                             {
                                 if (ReleaseIfScheduleChangedSignificantly(triggers, triggerTime))
                                 {
@@ -367,7 +367,7 @@ namespace Quartz.Core
                             // set triggers to 'executing'
                             IList<TriggerFiredResult> bndles = new List<TriggerFiredResult>();
 
-                            bool goAhead = true;
+                            bool goAhead;
                             lock (sigLock) 
                             {
                         	    goAhead = !halted;
@@ -429,7 +429,7 @@ namespace Quartz.Core
                             //   but the signature says it can).
                             // 3- acquire more triggers at a time (based on num threads available?)
 
-                            JobRunShell shell = null;
+                            JobRunShell shell;
                             try
                             {
                                 shell = qsRsrcs.JobRunShellFactory.CreateJobRunShell(bndle);
@@ -535,7 +535,7 @@ namespace Quartz.Core
 		    // implementation to tell us the amount of time in which it "thinks"
 		    // it can abandon the acquired trigger and acquire a new one.  However
 		    // we have no current facility for having it tell us that, so we make
-		    // a somewhat educated but arbitrary guess ;-).
+		    // a somewhat educated but arbitrary guess.
 
     	    lock (sigLock) 
             {

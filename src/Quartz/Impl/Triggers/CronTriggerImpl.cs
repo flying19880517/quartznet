@@ -188,7 +188,7 @@ namespace Quartz.Impl.Triggers
 		/// </summary>
 		/// <remarks>
 		/// The start-time will also be set to the current time, and the time zone
-		/// will be set the the system's default time zone.
+		/// will be set to the system's default time zone.
         /// </remarks>
 		public CronTriggerImpl()
 		{
@@ -201,7 +201,7 @@ namespace Quartz.Impl.Triggers
         /// </summary>
         /// <remarks>
         /// The start-time will also be set to the current time, and the time zone
-        /// will be set the the system's default time zone.
+        /// will be set to the system's default time zone.
         /// </remarks>
         /// <param name="name">The name of the <see cref="ITrigger" /></param>
         public CronTriggerImpl(string name) : this(name, null)
@@ -213,7 +213,7 @@ namespace Quartz.Impl.Triggers
 		/// </summary>
 		/// <remarks>
 		/// The start-time will also be set to the current time, and the time zone
-		/// will be set the the system's default time zone.
+		/// will be set to the system's default time zone.
         /// </remarks>
         /// <param name="name">The name of the <see cref="ITrigger" /></param>
         /// <param name="group">The group of the <see cref="ITrigger" /></param>
@@ -230,7 +230,7 @@ namespace Quartz.Impl.Triggers
 		/// </summary>
 		/// <remarks>
 		/// The start-time will also be set to the current time, and the time zone
-		/// will be set the the system's default time zone.
+		/// will be set to the system's default time zone.
         /// </remarks>
         /// <param name="name">The name of the <see cref="ITrigger" /></param>
         /// <param name="group">The group of the <see cref="ITrigger" /></param>
@@ -249,7 +249,7 @@ namespace Quartz.Impl.Triggers
 		/// </summary>
 		/// <remarks>
 		/// The start-time will also be set to the current time, and the time zone
-		/// will be set the the system's default time zone.
+		/// will be set to the system's default time zone.
 		/// </remarks>
         /// <param name="name">The name of the <see cref="ITrigger" />.</param>
         /// <param name="group">The group of the <see cref="ITrigger" /></param>
@@ -269,7 +269,7 @@ namespace Quartz.Impl.Triggers
 		/// </summary>
 		/// <remarks>
 		/// The start-time will also be set to the current time, and the time zone
-		/// will be set the the system's default time zone.
+		/// will be set to the system's default time zone.
         /// </remarks>
         /// <param name="name">The name of the <see cref="ITrigger" /></param>
         /// <param name="group">The group of the <see cref="ITrigger" /></param>
@@ -309,7 +309,7 @@ namespace Quartz.Impl.Triggers
 		/// until the given end time.
 		/// <para>
 		/// If null, the start-time will also be set to the current time, the time
-		/// zone will be set the the system's default.
+		/// zone will be set to the system's default.
 		/// </para>
 		/// </summary>
         /// <param name="name">The name of the <see cref="ITrigger" /></param>
@@ -341,17 +341,22 @@ namespace Quartz.Impl.Triggers
 
 	    /// <summary>
 	    /// Create a <see cref="CronTriggerImpl" /> with fire time dictated by the
-	    /// <param name="cronExpression" /> resolved with respect to the specified
-	    /// <param name="timeZone" /> occurring from the <see cref="startTimeUtc" /> until
-	    /// the given <paran name="endTimeUtc" />.
+	    /// <paramref name="cronExpression" /> resolved with respect to the specified
+	    /// <paramref name="timeZone" /> occurring from the <see cref="startTimeUtc" /> until
+	    /// the given <paramref name="endTime" />.
 	    /// </summary>
 	    /// <param name="name">The name of the <see cref="ITrigger" /></param>
 	    /// <param name="group">The group of the <see cref="ITrigger" /></param>
 	    /// <param name="jobName">name of the <see cref="IJobDetail" /> executed on firetime</param>
 	    /// <param name="jobGroup">Group of the <see cref="IJobDetail" /> executed on firetime</param>
-	    /// <param name="startTimeUtc">A <see cref="DateTimeOffset" /> set to the earliest time for the  <see cref="ITrigger" /> to start firing.</param>
-	    /// <param name="endTime">A <see cref="DateTimeOffset" /> set to the time for the <see cref="ITrigger" /> to quit repeat firing.</param>
-	    public CronTriggerImpl(string name, string group, string jobName,
+	    /// <param name="startTimeUtc">A <see cref="DateTimeOffset" /> set to the earliest time for the <see cref="ITrigger" /> to start firing.</param>
+        /// <param name="endTime">A <see cref="DateTimeOffset" /> set to the time for the <see cref="ITrigger" /> to quit repeat firing.</param>
+        /// <param name="cronExpression"> A cron expression dictating the firing sequence of the <see cref="ITrigger" /></param>
+        /// <param name="timeZone">
+        /// Specifies for which time zone the cronExpression should be interpreted, 
+        /// i.e. the expression 0 0 10 * * ?, is resolved to 10:00 am in this time zone.
+        /// </param>
+		public CronTriggerImpl(string name, string group, string jobName,
             string jobGroup, DateTimeOffset startTimeUtc, 
             DateTimeOffset? endTime,
 			string cronExpression, 
@@ -371,7 +376,7 @@ namespace Quartz.Impl.Triggers
 			}
 			if (timeZone == null)
 			{
-                timeZone = TimeZoneInfo.Local;
+                TimeZone = TimeZoneInfo.Local;
 			}
 			else
 			{
@@ -401,9 +406,9 @@ namespace Quartz.Impl.Triggers
 		{
 			set
 			{
-			    TimeZoneInfo orginalTimeZone = TimeZone;
+			    TimeZoneInfo originalTimeZone = TimeZone;
 				cronEx = new CronExpression(value);
-				cronEx.TimeZone = orginalTimeZone;
+				cronEx.TimeZone = originalTimeZone;
 			}
 			get { return cronEx == null ? null : cronEx.CronExpressionString; }
 		}
@@ -448,7 +453,7 @@ namespace Quartz.Impl.Triggers
 
 		/// <summary>
 		/// Get or sets the time at which the <c>CronTrigger</c> should quit
-		/// repeating - even if repeastCount isn't yet satisfied. 
+		/// repeating - even if repeatCount isn't yet satisfied. 
 		/// </summary>
         public override DateTimeOffset? EndTimeUtc
 		{
@@ -845,7 +850,6 @@ namespace Quartz.Impl.Triggers
 				    if (diff >= misfireThreshold)
 				    {
 					    nextFireTimeUtc = GetFireTimeAfter(nextFireTimeUtc);
-					    continue;
 				    }
 			    }
             }

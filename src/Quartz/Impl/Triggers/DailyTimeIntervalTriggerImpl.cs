@@ -107,7 +107,7 @@ namespace Quartz.Impl.Triggers
 
         /// <summary>
         /// Create a <see cref="IDailyTimeIntervalTrigger" /> that will occur immediately, and
-        /// repeat at the the given interval.
+        /// repeat at the given interval.
         /// </summary>
         /// <param name="name"></param>
         /// <param name="startTimeOfDayUtc">The <see cref="TimeOfDay" /> that the repeating should begin occurring.</param>
@@ -123,7 +123,7 @@ namespace Quartz.Impl.Triggers
 
         /// <summary>
         /// Create a <see cref="IDailyTimeIntervalTrigger" /> that will occur immediately, and
-        /// repeat at the the given interval.
+        /// repeat at the given interval.
         /// </summary>
         /// <param name="name"></param>
         /// <param name="group"></param>
@@ -141,7 +141,7 @@ namespace Quartz.Impl.Triggers
 
         /// <summary>
         /// Create a <see cref="IDailyTimeIntervalTrigger" /> that will occur at the given time,
-        /// and repeat at the the given interval until the given end time.
+        /// and repeat at the given interval until the given end time.
         /// </summary>
         /// <param name="name"></param>
         /// <param name="startTimeUtc">A <see cref="DateTimeOffset" /> set to the time for the <see cref="ITrigger" />to fire.</param>
@@ -160,7 +160,7 @@ namespace Quartz.Impl.Triggers
 
         /// <summary>
         /// Create a <see cref="IDailyTimeIntervalTrigger" /> that will occur at the given time,
-        /// and repeat at the the given interval until the given end time.
+        /// and repeat at the given interval until the given end time.
         /// </summary>
         /// <param name="name"></param>
         /// <param name="group"></param>
@@ -186,7 +186,7 @@ namespace Quartz.Impl.Triggers
 
         /// <summary>
         /// Create a <see cref="IDailyTimeIntervalTrigger" /> that will occur at the given time,
-        /// fire the identified job and repeat at the the given
+        /// fire the identified job and repeat at the given
         /// interval until the given end time.
         /// </summary>
         /// <param name="name"></param>
@@ -213,7 +213,6 @@ namespace Quartz.Impl.Triggers
             StartTimeOfDay = startTimeOfDayUtc;
             EndTimeOfDay = endTimeOfDayUtc;
         }
-
 
         /// <summary>
         /// The time at which the <see cref="IDailyTimeIntervalTrigger" /> should occur.
@@ -245,7 +244,6 @@ namespace Quartz.Impl.Triggers
             }
         }
 
-
         /// <summary>
         /// the time at which the <see cref="IDailyTimeIntervalTrigger" /> should quit repeating.
         /// </summary>
@@ -266,7 +264,7 @@ namespace Quartz.Impl.Triggers
         }
 
         /// <summary>
-        /// Get the the number of times for interval this trigger should repeat, 
+        /// Get the number of times for interval this trigger should repeat, 
         /// after which it will be automatically deleted.
         /// </summary>
         public int RepeatCount
@@ -299,7 +297,7 @@ namespace Quartz.Impl.Triggers
                       (value == IntervalUnit.Minute) ||
                       (value == IntervalUnit.Hour)))
                 {
-                    throw new ArgumentException("Invalid repeat IntervalUnit (must be Second, Minute or Hour");
+                    throw new ArgumentException("Invalid repeat IntervalUnit (must be Second, Minute or Hour)");
                 }
 
                 repeatIntervalUnit = value;
@@ -307,7 +305,7 @@ namespace Quartz.Impl.Triggers
         }
 
         /// <summary>
-        /// the the time interval that will be added to the <see cref="IDailyTimeIntervalTrigger" />'s
+        /// the time interval that will be added to the <see cref="IDailyTimeIntervalTrigger" />'s
         /// fire time (in the set repeat interval unit) in order to calculate the time of the
         /// next trigger repeat.
         /// </summary>
@@ -439,7 +437,6 @@ namespace Quartz.Impl.Triggers
                     nextFireTimeUtc = null;
                 }
             }
-
 
             if (nextFireTimeUtc == null)
             {
@@ -590,7 +587,6 @@ namespace Quartz.Impl.Triggers
             this.previousFireTimeUtc = previousFireTimeUtc;
         }
 
-
         /// <summary>
         /// Returns the next time at which the <see cref="IDailyTimeIntervalTrigger" /> will
         /// fire, after the given time. If the trigger will not fire after the given
@@ -639,7 +635,7 @@ namespace Quartz.Impl.Triggers
                 afterTimePastEndTimeOfDay = afterTime.Value > endTimeOfDay.GetTimeOfDayForDate(afterTime).Value;
             }
 
-            // c. now we need to move move to the next valid day of week if either: 
+            // c. now we need to move to the next valid day of week if either: 
             // the given time is past the end time of day, or given time is not on a valid day of week
             DateTimeOffset? fireTime = AdvanceToNextDayOfWeekIfNecessary(afterTime.Value, afterTimePastEndTimeOfDay);
 
@@ -663,17 +659,17 @@ namespace Quartz.Impl.Triggers
             }
 
             // apply the proper offset for the end date
-            fireTimeEndDate = new DateTimeOffset(fireTimeEndDate.DateTime, this.TimeZone.GetUtcOffset(fireTimeEndDate.DateTime));
+            fireTimeEndDate = new DateTimeOffset(fireTimeEndDate.DateTime, TimeZone.GetUtcOffset(fireTimeEndDate.DateTime));
 
             // e. Check fireTime against startTime or startTimeOfDay to see which go first.
             DateTimeOffset fireTimeStartDate = startTimeOfDay.GetTimeOfDayForDate(fireTime).Value;
 
             // apply the proper offset for the start date
-            fireTimeStartDate = new DateTimeOffset(fireTimeStartDate.DateTime, this.TimeZone.GetUtcOffset(fireTimeStartDate.DateTime));
+            fireTimeStartDate = new DateTimeOffset(fireTimeStartDate.DateTime, TimeZone.GetUtcOffset(fireTimeStartDate.DateTime));
 
             if (fireTime < fireTimeStartDate)
             {
-                return fireTimeStartDate;
+                return fireTimeStartDate.ToUniversalTime();
             }
 
             // f. Continue to calculate the fireTime by incremental unit of intervals.
@@ -730,7 +726,11 @@ namespace Quartz.Impl.Triggers
                 return null;
             }
 
-            return fireTime.Value.ToUniversalTime();
+            // apply proper offset
+            var d = fireTime.Value;
+            d = new DateTimeOffset(d.Year, d.Month, d.Day, d.Hour, d.Minute, d.Second, TimeZone.GetUtcOffset(d.DateTime));
+
+            return d.ToUniversalTime();
         }
 
         private bool IsSameDay(DateTimeOffset d1, DateTimeOffset d2)
@@ -786,7 +786,6 @@ namespace Quartz.Impl.Triggers
             return fireTime;
         }
 
-
         /// <summary>
         /// Returns the final time at which the <see cref="IDailyTimeIntervalTrigger" /> will
         /// fire, if there is no end time set, null will be returned.
@@ -815,7 +814,6 @@ namespace Quartz.Impl.Triggers
                 return endTime;
             }
         }
-
 
         /// <summary>
         /// Determines whether or not the <see cref="IDailyTimeIntervalTrigger" /> will occur
@@ -865,7 +863,6 @@ namespace Quartz.Impl.Triggers
                 throw new SchedulerException("StartTimeOfDay " + startTimeOfDay + " should not come after endTimeOfDay " + endTimeOfDay);
             }
         }
-
 
         /// <summary>
         /// The days of the week upon which to fire.
@@ -931,7 +928,6 @@ namespace Quartz.Impl.Triggers
             }
         }
 
-
         /// <summary>
         /// The time of day to complete firing at the given interval.
         /// </summary>
@@ -954,7 +950,6 @@ namespace Quartz.Impl.Triggers
             }
         }
 
-
         /// <summary>
         /// Get a <see cref="IScheduleBuilder" /> that is configured to produce a 
         /// schedule identical to this trigger's schedule.
@@ -967,7 +962,9 @@ namespace Quartz.Impl.Triggers
                 .WithInterval(RepeatInterval, RepeatIntervalUnit)
                 .OnDaysOfTheWeek(DaysOfWeek)
                 .StartingDailyAt(StartTimeOfDay)
-                .EndingDailyAt(EndTimeOfDay);
+                .EndingDailyAt(EndTimeOfDay)
+                .WithRepeatCount(RepeatCount)
+                .InTimeZone(TimeZone);
 
             switch (MisfireInstruction)
             {

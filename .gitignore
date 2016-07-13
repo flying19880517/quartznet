@@ -59,3 +59,10 @@ website
 *.nupkg
 /packages
 /buildlog.txt
+/src/AssemblyInfo.cs
+
+project.lock.json
+/.idea
+/.fake
+/*.iml
+jspm_packages

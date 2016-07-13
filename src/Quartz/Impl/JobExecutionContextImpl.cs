@@ -79,7 +79,7 @@ namespace Quartz.Impl
 
         private readonly ICalendar calendar;
         private readonly bool recovering;
-        private int numRefires = 0;
+        private int numRefires;
         private readonly DateTimeOffset? fireTimeUtc;
         private readonly DateTimeOffset? scheduledFireTimeUtc;
         private readonly DateTimeOffset? prevFireTimeUtc;
@@ -90,7 +90,7 @@ namespace Quartz.Impl
         private readonly IDictionary<object, object> data = new Dictionary<object, object>();
 
         /// <summary>
-        /// Create a JobExcecutionContext with the given context data.
+        /// Create a JobExecutionContext with the given context data.
         /// </summary>
         public JobExecutionContextImpl(IScheduler scheduler, TriggerFiredBundle firedBundle, IJob job)
         {
@@ -359,7 +359,7 @@ namespace Quartz.Impl
 		}
 
         /// <summary>
-        /// Returns the fire instace id.
+        /// Returns the fire instance id.
         /// </summary>
         public string FireInstanceId
         {

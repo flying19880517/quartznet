@@ -179,22 +179,30 @@ namespace Quartz.Job
             log.Info(string.Format(CultureInfo.InvariantCulture, "Sending message {0}", GetMessageDescription(mailInfo.MailMessage)));
 
             var client = new SmtpClient(mailInfo.SmtpHost);
-
-            if (mailInfo.SmtpUserName != null)
+            try
             {
-                client.Credentials = new NetworkCredential(mailInfo.SmtpUserName, mailInfo.SmtpPassword);
-            }
+                if (mailInfo.SmtpUserName != null)
+                {
+                    client.Credentials = new NetworkCredential(mailInfo.SmtpUserName, mailInfo.SmtpPassword);
+                }
 
-            if (mailInfo.SmtpPort != null)
-            {
-                client.Port = mailInfo.SmtpPort.Value;
-            }
+                if (mailInfo.SmtpPort != null)
+                {
+                    client.Port = mailInfo.SmtpPort.Value;
+                }
 
-            // Do not remove this using. In .NET 4.0 SmtpClient implements IDisposable.
-            using (client as IDisposable)
-            {
                 client.Send(mailInfo.MailMessage);
             }
+            finally
+            {
+                // .NET 3.5
+                var disposable = client as IDisposable;
+                if (disposable != null)
+                {
+                    disposable.Dispose();
+                }
+            }
+
         }
 
         private static string GetMessageDescription(MailMessage message)

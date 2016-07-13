@@ -82,22 +82,44 @@ namespace Quartz.Impl.AdoJobStore
 
                 foreach (string setting in settings)
                 {
-                    string[] parts = setting.Split('=');
-                    string name = parts[0];
-                    if (parts.Length == 1 || parts[1] == null || parts[1].Equals(""))
+                    var index = setting.IndexOf('=');
+                    if (index == -1 || index == setting.Length - 1)
                     {
                         continue;
                     }
 
-                    if (name.Equals("triggerPersistenceDelegateClasses"))
+                    string name = setting.Substring(0, index).Trim();
+                    string value = setting.Substring(index + 1).Trim();
+
+                    if (string.IsNullOrEmpty(value))
                     {
-                        string[] trigDelegates = parts[1].Split(',');
+                        continue;
+                    }
+
+                    // we support old *Classes and new *Types, latter has better support for assembly qualified names
+                    if (name.Equals("triggerPersistenceDelegateClasses") || name.Equals("triggerPersistenceDelegateTypes"))
+                    {
+                        var separator = ',';
+                        if (value.IndexOf(';') != -1 || name.Equals("triggerPersistenceDelegateTypes"))
+                        {
+                            // use separator that allows assembly qualified names
+                            separator = ';';
+                        }
+
+                        string[] trigDelegates = value.Split(separator);
 
                         foreach (string triggerTypeName in trigDelegates)
                         {
+                            var typeName = triggerTypeName.Trim();
+
+                            if (string.IsNullOrEmpty(typeName))
+                            {
+                                continue;
+                            }
+
                             try
                             {
-                                Type trigDelClass = typeLoadHelper.LoadType(triggerTypeName);
+                                Type trigDelClass = typeLoadHelper.LoadType(typeName);
                                 AddTriggerPersistenceDelegate((ITriggerPersistenceDelegate) Activator.CreateInstance(trigDelClass));
                             }
                             catch (Exception e)
@@ -263,7 +285,7 @@ namespace Quartz.Impl.AdoJobStore
         /// <returns>Whether there are more misfired triggers left to find beyond the given count.</returns>
         public virtual bool HasMisfiredTriggersInState(ConnectionAndTransactionHolder conn, string state1, DateTimeOffset ts, int count, IList<TriggerKey> resultList)
         {
-            using (IDbCommand cmd = PrepareCommand(conn, ReplaceTablePrefix(SqlSelectHasMisfiredTriggersInState)))
+            using (IDbCommand cmd = PrepareCommand(conn, ReplaceTablePrefix(GetSelectNextMisfiredTriggersInStateToAcquireSql(count))))
             {
                 AddCommandParameter(cmd, "nextFireTime", GetDbDateTimeValue(ts));
                 AddCommandParameter(cmd, "state1", state1);
@@ -289,6 +311,12 @@ namespace Quartz.Impl.AdoJobStore
             }
         }
 
+        protected virtual string GetSelectNextMisfiredTriggersInStateToAcquireSql(int count)
+        {
+            // by default we don't support limits, this is db specific
+            return SqlSelectHasMisfiredTriggersInState;
+        }
+
         /// <summary>
         /// Get the number of triggers in the given state that have
         /// misfired - according to the given timestamp.
@@ -297,7 +325,7 @@ namespace Quartz.Impl.AdoJobStore
         /// <param name="state1"></param>
         /// <param name="ts"></param>
         /// <returns></returns>
-        public int CountMisfiredTriggersInState(ConnectionAndTransactionHolder conn, string state1, DateTimeOffset ts)
+        public virtual int CountMisfiredTriggersInState(ConnectionAndTransactionHolder conn, string state1, DateTimeOffset ts)
         {
             using (IDbCommand cmd = PrepareCommand(conn, ReplaceTablePrefix(SqlCountMisfiredTriggersInStates)))
             {
@@ -461,7 +489,7 @@ namespace Quartz.Impl.AdoJobStore
         /// </summary>
         /// <remarks>
         /// </remarks>
-        public void ClearData(ConnectionAndTransactionHolder conn)
+        public virtual void ClearData(ConnectionAndTransactionHolder conn)
         {
             IDbCommand ps = PrepareCommand(conn, ReplaceTablePrefix(SqlDeleteAllSimpleTriggers));
             ps.ExecuteNonQuery();
@@ -493,7 +521,11 @@ namespace Quartz.Impl.AdoJobStore
         /// <returns>Number of rows inserted.</returns>
         public virtual int InsertJobDetail(ConnectionAndTransactionHolder conn, IJobDetail job)
         {
-            byte[] baos = SerializeJobData(job.JobDataMap);
+            byte[] baos = null;
+            if (job.JobDataMap.Count > 0)
+            {
+                baos = SerializeJobData(job.JobDataMap);
+            }
 
             int insertResult;
 
@@ -507,7 +539,16 @@ namespace Quartz.Impl.AdoJobStore
                 AddCommandParameter(cmd, "jobVolatile", GetDbBooleanValue(job.ConcurrentExecutionDisallowed));
                 AddCommandParameter(cmd, "jobStateful", GetDbBooleanValue(job.PersistJobDataAfterExecution));
                 AddCommandParameter(cmd, "jobRequestsRecovery", GetDbBooleanValue(job.RequestsRecovery));
-                AddCommandParameter(cmd, "jobDataMap", baos, dbProvider.Metadata.DbBinaryType);
+
+                string paramName = "jobDataMap";
+                if (baos != null)
+                {
+                    AddCommandParameter(cmd, paramName, baos, dbProvider.Metadata.DbBinaryType);
+                }
+                else
+                {
+                    AddCommandParameter(cmd, paramName, null, dbProvider.Metadata.DbBinaryType);
+                }
 
                 insertResult = cmd.ExecuteNonQuery();
             }
@@ -605,17 +646,7 @@ namespace Quartz.Impl.AdoJobStore
 
         protected virtual string GetStorableJobTypeName(Type jobType)
         {
-            if (jobType.AssemblyQualifiedName == null)
-            {
-                throw new ArgumentException("Cannot determine job type name when type's AssemblyQualifiedName is null");
-            }
-
-            int idx = jobType.AssemblyQualifiedName.IndexOf(',');
-            // find next
-            idx = jobType.AssemblyQualifiedName.IndexOf(',', idx + 1);
-
-            string retValue = jobType.AssemblyQualifiedName.Substring(0, idx);
-
+            string retValue = jobType.FullName + ", " + jobType.Assembly.GetName().Name;
             return retValue;
         }
 
@@ -790,7 +821,7 @@ namespace Quartz.Impl.AdoJobStore
                         job.Durable = GetBooleanFromDbValue(rs[ColumnIsDurable]);
                         job.RequestsRecovery = GetBooleanFromDbValue(rs[ColumnRequestsRecovery]);
 
-                        IDictionary map = CanUseProperties ? GetMapFromProperties(rs, 6) : GetObjectFromBlob<IDictionary>(rs, 6);
+                        IDictionary map = ReadMapFromReader(rs, 6);
 
                         if (map != null)
                         {
@@ -799,6 +830,56 @@ namespace Quartz.Impl.AdoJobStore
                     }
 
                     return job;
+                }
+            }
+        }
+
+        private IDictionary ReadMapFromReader(IDataReader rs, int colIndex)
+        {
+            if (CanUseProperties)
+            {
+                try
+                {
+                    return GetMapFromProperties(rs, colIndex);
+                }
+                catch (InvalidCastException)
+                {
+                    // old data from user error?
+                    try
+                    {
+                        var blobData = GetObjectFromBlob<IDictionary>(rs, colIndex);
+                        // we use this then
+                        return blobData;
+                    }
+                    catch
+                    {
+                    }
+
+                    // throw original exception
+                    throw;
+                }
+            }
+            else
+            {
+                try
+                {
+                    return GetObjectFromBlob<IDictionary>(rs, colIndex);
+                }
+                catch (InvalidCastException)
+                {
+                    // old data from user error?
+                    try
+                    {
+                        var stringData = GetMapFromProperties(rs, colIndex);
+                        // we use this then
+                        return stringData;
+                    }
+                    catch
+                    {
+                    }
+
+                    // throw original exception
+                    throw;
                 }
             }
         }
@@ -1513,7 +1594,7 @@ namespace Quartz.Impl.AdoJobStore
                         int misFireInstr = rs.GetInt32(ColumnMifireInstruction);
                         int priority = rs.GetInt32(ColumnPriority);
 
-                        IDictionary map = CanUseProperties ? GetMapFromProperties(rs, 11) : GetObjectFromBlob<IDictionary>(rs, 11);
+                        IDictionary map = ReadMapFromReader(rs, 11); 
 
                         DateTimeOffset? nextFireTimeUtc = GetDateTimeFromDbValue(rs[ColumnNextFireTime]);
                         DateTimeOffset? previousFireTimeUtc = GetDateTimeFromDbValue(rs[ColumnPreviousFireTime]);
@@ -1631,16 +1712,7 @@ namespace Quartz.Impl.AdoJobStore
                 {
                     if (rs.Read())
                     {
-                        IDictionary map;
-                        if (CanUseProperties)
-                        {
-                            map = GetMapFromProperties(rs, 0);
-                        }
-                        else
-                        {
-                            map = GetObjectFromBlob<IDictionary>(rs, 0);
-                        }
-
+                        IDictionary map = ReadMapFromReader(rs, 0);
                         if (map != null)
                         {
                             return map as JobDataMap ?? new JobDataMap(map);
@@ -1765,7 +1837,7 @@ namespace Quartz.Impl.AdoJobStore
             }
         }
 
-        public IList<String> SelectTriggerGroups(ConnectionAndTransactionHolder conn, GroupMatcher<TriggerKey> matcher)
+        public virtual IList<String> SelectTriggerGroups(ConnectionAndTransactionHolder conn, GroupMatcher<TriggerKey> matcher)
         {
             using (IDbCommand cmd = PrepareCommand(conn, ReplaceTablePrefix(SqlSelectTriggerGroupsFiltered)))
             {
@@ -2183,7 +2255,7 @@ namespace Quartz.Impl.AdoJobStore
 
         protected virtual string GetSelectNextTriggerToAcquireSql(int maxCount)
         {
-            // by default we don't support limits, this is db sepecivef
+            // by default we don't support limits, this is db specific
             return SqlSelectNextTriggerToAcquire;
         }
 
@@ -2244,7 +2316,7 @@ namespace Quartz.Impl.AdoJobStore
         /// <param name="job"></param>
         /// the state that the trigger should be stored in
         /// <returns>the number of rows inserted</returns>
-        public int UpdateFiredTrigger(ConnectionAndTransactionHolder conn, IOperableTrigger trigger, string state, IJobDetail job)
+        public virtual int UpdateFiredTrigger(ConnectionAndTransactionHolder conn, IOperableTrigger trigger, string state, IJobDetail job)
         {
             IDbCommand ps = PrepareCommand(conn, ReplaceTablePrefix(SqlUpdateFiredTrigger));
             AddCommandParameter(ps, "instanceName", instanceId);
@@ -2428,7 +2500,7 @@ namespace Quartz.Impl.AdoJobStore
         /// This is useful when trying to identify orphaned fired triggers (a
         /// fired trigger without a scheduler state record.)
         /// </remarks>
-        public Collection.ISet<string> SelectFiredTriggerInstanceNames(ConnectionAndTransactionHolder conn)
+        public virtual Collection.ISet<string> SelectFiredTriggerInstanceNames(ConnectionAndTransactionHolder conn)
         {
             Collection.HashSet<string> instanceNames = new Collection.HashSet<string>();
             using (IDbCommand cmd = PrepareCommand(conn, ReplaceTablePrefix(SqlSelectFiredTriggerInstanceNames)))
@@ -2590,7 +2662,7 @@ namespace Quartz.Impl.AdoJobStore
         /// Replace the table prefix in a query by replacing any occurrences of
         /// "{0}" with the table prefix.
         /// </summary>
-        /// <param name="query">The unsubstitued query</param>
+        /// <param name="query">The unsubstituted query</param>
         /// <returns>The query, with proper table prefix substituted</returns>
         protected string ReplaceTablePrefix(string query)
         {
@@ -2611,7 +2683,7 @@ namespace Quartz.Impl.AdoJobStore
 
 
         /// <summary>
-        /// Create a serialized <see lanword="byte[]"/> version of an Object.
+        /// Create a serialized <see langword="byte[]"/> version of an Object.
         /// </summary>
         /// <param name="obj">the object to serialize</param>
         /// <returns>Serialized object as byte array.</returns>
@@ -2647,7 +2719,7 @@ namespace Quartz.Impl.AdoJobStore
                 throw new SerializationException(
                     "Unable to serialize JobDataMap for insertion into " +
                     "database because the value of property '" +
-                    GetKeyOfNonSerializableValue((IDictionary) data) +
+                    GetKeyOfNonSerializableValue(data) +
                     "' is not serializable: " + e.Message);
             }
         }

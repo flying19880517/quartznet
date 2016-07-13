@@ -35,7 +35,7 @@ namespace Quartz.Spi
     /// method  <see cref="RunInThread(IThreadRunnable)"/> is called a few moments (or
     /// many moments) later.  If this assumption does not hold true, it may
     /// result in extra JobStore queries and updates, and if clustering features
-    /// are being used, it may result in greater imballance of load.
+    /// are being used, it may result in greater imbalance of load.
     /// </remarks>
     /// <seealso cref="QuartzScheduler" />
     /// <author>James House</author>
@@ -55,7 +55,7 @@ namespace Quartz.Spi
         bool RunInThread(IThreadRunnable runnable);
 
         /// <summary>
-        /// Determines the number of threads that are currently available in in
+        /// Determines the number of threads that are currently available in
         /// the pool.  Useful for determining the number of times
         /// <see cref="RunInThread(IThreadRunnable)"/>  can be called before returning
         /// false.

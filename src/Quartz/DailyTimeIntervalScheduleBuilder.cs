@@ -61,7 +61,7 @@ namespace Quartz
     ///             .WithIdentity(triggerKey("myTrigger", "myTriggerGroup"))
     ///             .WithDailyTimeIntervalSchedule(x => 
     ///                        x.WithIntervalInMinutes(15)
-    ///                        .StartingDailyAt(TimeOfDay.HourAndMinuteOfDay(8, 0))
+    ///                        .StartingDailyAt(TimeOfDay.HourAndMinuteOfDay(8, 0)))
     ///             .Build();
     ///         
     ///         scheduler.scheduleJob(job, trigger);
@@ -376,24 +376,24 @@ namespace Quartz
             DateTimeOffset startTimeOfDayDate = startTimeOfDayUtc.GetTimeOfDayForDate(today).Value;
             DateTimeOffset maxEndTimeOfDayDate = TimeOfDay.HourMinuteAndSecondOfDay(23, 59, 59).GetTimeOfDayForDate(today).Value;
 
-            //apply proper offsets accroding to timezone
+            //apply proper offsets according to timezone
             TimeZoneInfo targetTimeZone = timeZone ?? TimeZoneInfo.Local;
             startTimeOfDayDate = new DateTimeOffset(startTimeOfDayDate.DateTime, targetTimeZone.GetUtcOffset(startTimeOfDayDate.DateTime));
             maxEndTimeOfDayDate = new DateTimeOffset(maxEndTimeOfDayDate.DateTime, targetTimeZone.GetUtcOffset(maxEndTimeOfDayDate.DateTime));
 
             TimeSpan remainingMillisInDay = maxEndTimeOfDayDate - startTimeOfDayDate;
-            TimeSpan intervalInMillis = TimeSpan.Zero;
+            TimeSpan intervalInMillis;
             if (intervalUnit == IntervalUnit.Second)
             {
                 intervalInMillis = TimeSpan.FromSeconds(interval);
             }
             else if (intervalUnit == IntervalUnit.Minute)
             {
-                intervalInMillis = TimeSpan.FromSeconds(interval * 60);
+                intervalInMillis = TimeSpan.FromMinutes(interval);
             }
             else if (intervalUnit == IntervalUnit.Hour)
             {
-                intervalInMillis = TimeSpan.FromSeconds(interval * 60 * 24);
+                intervalInMillis = TimeSpan.FromHours(interval);
             }
             else
             {
@@ -487,7 +487,7 @@ namespace Quartz
             return this;
         }
 
-        private void ValidateInterval(int interval)
+        private static void ValidateInterval(int interval)
         {
             if (interval <= 0)
             {

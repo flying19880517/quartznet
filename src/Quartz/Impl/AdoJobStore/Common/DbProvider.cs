@@ -37,7 +37,7 @@ namespace Quartz.Impl.AdoJobStore.Common
     /// <author>Marko Lahma</author>
     public class DbProvider : IDbProvider
     {
-        protected const string PropertyDbProvider = "quartz.dbprovider";
+		protected const string PropertyDbProvider = StdSchedulerFactory.PropertyDbProvider;
         protected const string DbProviderSectionName = StdSchedulerFactory.ConfigurationSectionName;
         protected const string DbProviderResourceName = "Quartz.Impl.AdoJobStore.Common.dbproviders.properties";
 
@@ -138,7 +138,7 @@ namespace Quartz.Impl.AdoJobStore.Common
         }
 
         /// <summary>
-        /// Returns a new command object for executing SQL statments/Stored Procedures
+        /// Returns a new command object for executing SQL statements/Stored Procedures
         /// against the database.
         /// </summary>
         /// <returns>An new <see cref="IDbCommand"/></returns>

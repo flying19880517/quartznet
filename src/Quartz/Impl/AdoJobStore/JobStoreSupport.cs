@@ -33,6 +33,7 @@ using Common.Logging;
 using Quartz.Impl.AdoJobStore.Common;
 using Quartz.Impl.Matchers;
 using Quartz.Impl.Triggers;
+using Quartz.Job;
 using Quartz.Simpl;
 using Quartz.Spi;
 using Quartz.Util;
@@ -69,9 +70,9 @@ namespace Quartz.Impl.AdoJobStore
         private readonly ILog log;
         private IObjectSerializer objectSerializer = new DefaultObjectSerializer();
         private IThreadExecutor threadExecutor = new DefaultThreadExecutor();
-        
-        private volatile bool schedulerRunning = false;
-        private volatile bool shutdown = false;
+
+        private volatile bool schedulerRunning;
+        private volatile bool shutdown;
 
         private IDbConnectionManager connectionManager = DBConnectionManager.Instance;
 
@@ -80,12 +81,13 @@ namespace Quartz.Impl.AdoJobStore
         /// </summary>
         protected JobStoreSupport()
         {
+            this.RetryableActionErrorLogThreshold = 4;
             DoubleCheckLockMisfireHandler = true;
             ClusterCheckinInterval = TimeSpan.FromMilliseconds(7500);
             MaxMisfiresToHandleAtATime = 20;
             DbRetryInterval = TimeSpan.FromSeconds(15);
             log = LogManager.GetLogger(GetType());
-            delegateType = typeof (StdAdoDelegate);
+            delegateType = typeof(StdAdoDelegate);
         }
 
         /// <summary> 
@@ -171,6 +173,12 @@ namespace Quartz.Impl.AdoJobStore
         {
             set { }
         }
+
+        /// <summary>
+        /// Gets or sets the number of retries before an error is logged for recovery operations.
+        /// </summary>
+        public int RetryableActionErrorLogThreshold { get; set; }
+
 
         public IThreadExecutor ThreadExecutor
         {
@@ -266,7 +274,7 @@ namespace Quartz.Impl.AdoJobStore
 
         /// <summary> 
         /// Don't call set autocommit(false) on connections obtained from the
-        /// DataSource. This can be helpfull in a few situations, such as if you
+        /// DataSource. This can be helpful in a few situations, such as if you
         /// have a driver that complains if it is called when it is already off.
         /// </summary>
         public virtual bool DontSetAutoCommitFalse { get; set; }
@@ -332,7 +340,7 @@ namespace Quartz.Impl.AdoJobStore
         /// <summary>
         /// Get whether to check to see if there are Triggers that have misfired
         /// before actually acquiring the lock to recover them.  This should be 
-        /// set to false if the majority of the time, there are are misfired
+        /// set to false if the majority of the time, there are misfired
         /// Triggers.
         /// </summary>
         /// <returns></returns>
@@ -396,7 +404,7 @@ namespace Quartz.Impl.AdoJobStore
                 DateTimeOffset misfireTime = SystemTime.UtcNow();
                 if (MisfireThreshold > TimeSpan.Zero)
                 {
-                    misfireTime = misfireTime.AddMilliseconds(-1*MisfireThreshold.TotalMilliseconds);
+                    misfireTime = misfireTime.AddMilliseconds(-1 * MisfireThreshold.TotalMilliseconds);
                 }
 
                 return misfireTime;
@@ -445,7 +453,7 @@ namespace Quartz.Impl.AdoJobStore
                                 throw new InvalidConfigurationException("Configured delegate does not have public constructor that takes no arguments");
                             }
 
-                            driverDelegate = (IDriverDelegate) ctor.Invoke(null);
+                            driverDelegate = (IDriverDelegate)ctor.Invoke(null);
                             driverDelegate.Initialize(args);
                         }
                         catch (Exception e)
@@ -551,7 +559,7 @@ namespace Quartz.Impl.AdoJobStore
                 }
                 catch (SchedulerException se)
                 {
-                    throw new SchedulerConfigException("Failure occured during job recovery.", se);
+                    throw new SchedulerConfigException("Failure occurred during job recovery.", se);
                 }
             }
 
@@ -686,7 +694,7 @@ namespace Quartz.Impl.AdoJobStore
 
                 foreach (IOperableTrigger trigger in recoveringJobTriggers)
                 {
-                    if (JobExists(conn, trigger.JobKey  ))
+                    if (JobExists(conn, trigger.JobKey))
                     {
                         trigger.ComputeFirstFireTimeUtc(null);
                         StoreTrigger(conn, trigger, null, false, StateWaiting, false, true);
@@ -791,7 +799,7 @@ namespace Quartz.Impl.AdoJobStore
                 DateTimeOffset misfireTime = SystemTime.UtcNow();
                 if (MisfireThreshold > TimeSpan.Zero)
                 {
-                    misfireTime = misfireTime.AddMilliseconds(-1*MisfireThreshold.TotalMilliseconds);
+                    misfireTime = misfireTime.AddMilliseconds(-1 * MisfireThreshold.TotalMilliseconds);
                 }
 
                 if (trig.GetNextFireTimeUtc().Value > misfireTime)
@@ -996,7 +1004,7 @@ namespace Quartz.Impl.AdoJobStore
 
                 if (job == null)
                 {
-                    job = Delegate.SelectJobDetail(conn, newTrigger.JobKey, TypeLoadHelper);
+                    job = RetrieveJob(conn, newTrigger.JobKey);
                 }
                 if (job == null)
                 {
@@ -1056,7 +1064,7 @@ namespace Quartz.Impl.AdoJobStore
         /// </returns>
         public bool RemoveJob(JobKey jobKey)
         {
-            return (bool)ExecuteInLock(LockTriggerAccess, conn => RemoveJob(conn, jobKey, true));
+            return ExecuteInLock(LockTriggerAccess, conn => RemoveJob(conn, jobKey, true));
         }
 
 
@@ -1083,38 +1091,38 @@ namespace Quartz.Impl.AdoJobStore
 
         public bool RemoveJobs(IList<JobKey> jobKeys)
         {
-            return ((bool) ExecuteInLock(
+            return ExecuteInLock(
                 LockTriggerAccess,
                 conn =>
+                {
+                    bool allFound = true;
+
+                    // TODO: make this more efficient with a true bulk operation...
+                    foreach (JobKey jobKey in jobKeys)
                     {
-                        bool allFound = true;
+                        allFound = RemoveJob(conn, jobKey, true) && allFound;
+                    }
 
-                        // TODO: make this more efficient with a true bulk operation...
-                        foreach (JobKey jobKey in jobKeys)
-                        {
-                            allFound = RemoveJob(conn, jobKey, true) && allFound;
-                        }
-
-                        return allFound;
-                    }));
+                    return allFound;
+                });
         }
 
         public bool RemoveTriggers(IList<TriggerKey> triggerKeys)
         {
-            return ((bool) ExecuteInLock(
+            return ExecuteInLock(
                 LockTriggerAccess,
                 conn =>
+                {
+                    bool allFound = true;
+
+                    // TODO: make this more efficient with a true bulk operation...
+                    foreach (TriggerKey triggerKey in triggerKeys)
                     {
-                        bool allFound = true;
+                        allFound = RemoveTrigger(conn, triggerKey) && allFound;
+                    }
 
-                        // TODO: make this more efficient with a true bulk operation...
-                        foreach (TriggerKey triggerKey in triggerKeys)
-                        {
-                            allFound = RemoveTrigger(conn, triggerKey) && allFound;
-                        }
-
-                        return allFound;
-                    }));
+                    return allFound;
+                });
         }
 
         public void StoreJobsAndTriggers(IDictionary<IJobDetail, Collection.ISet<ITrigger>> triggersAndJobs, bool replace)
@@ -1122,19 +1130,19 @@ namespace Quartz.Impl.AdoJobStore
             ExecuteInLock(
                 (LockOnInsert || replace) ? LockTriggerAccess : null,
                 delegate(ConnectionAndTransactionHolder conn)
+                {
+                    // TODO: make this more efficient with a true bulk operation...
+                    foreach (IJobDetail job in triggersAndJobs.Keys)
                     {
-                        // TODO: make this more efficient with a true bulk operation...
-                        foreach (IJobDetail job in triggersAndJobs.Keys)
+                        StoreJob(conn, job, replace);
+                        foreach (ITrigger trigger in triggersAndJobs[job])
                         {
-                            StoreJob(conn, job, replace);
-                            foreach (ITrigger trigger in triggersAndJobs[job])
-                            {
-                                StoreTrigger(conn, (IOperableTrigger) trigger, job, replace, StateWaiting, false, false);
-                            }
+                            StoreTrigger(conn, (IOperableTrigger)trigger, job, replace, StateWaiting, false, false);
                         }
-                    });
-        }    
-    
+                    }
+                });
+        }
+
 
 
         /// <summary>
@@ -1218,7 +1226,7 @@ namespace Quartz.Impl.AdoJobStore
         ///</returns>
         public bool RemoveTrigger(TriggerKey triggerKey)
         {
-            return (bool) ExecuteInLock(LockTriggerAccess, conn => RemoveTrigger(conn, triggerKey));
+            return ExecuteInLock(LockTriggerAccess, conn => RemoveTrigger(conn, triggerKey));
         }
 
 
@@ -1248,7 +1256,10 @@ namespace Quartz.Impl.AdoJobStore
                     {
                         // Don't call RemoveJob() because we don't want to check for
                         // triggers again.
-                        DeleteJobAndChildren(conn, job.Key);
+                        if (DeleteJobAndChildren(conn, job.Key))
+                        {
+                            schedSignaler.NotifySchedulerListenersJobDeleted(job.Key);
+                        }
                     }
                 }
             }
@@ -1268,7 +1279,7 @@ namespace Quartz.Impl.AdoJobStore
 
             public Type LoadType(string name)
             {
-                return typeof (Quartz.Job.NoOpJob);
+                return typeof(NoOpJob);
             }
 
             public Uri GetResource(string name)
@@ -1286,7 +1297,6 @@ namespace Quartz.Impl.AdoJobStore
         public bool ReplaceTrigger(TriggerKey triggerKey, IOperableTrigger newTrigger)
         {
             return
-                (bool)
                 ExecuteInLock(LockTriggerAccess, conn => ReplaceTrigger(conn, triggerKey, newTrigger));
         }
 
@@ -1327,7 +1337,7 @@ namespace Quartz.Impl.AdoJobStore
         /// <returns>The desired <see cref="ITrigger" />, or null if there is no match.</returns>
         public IOperableTrigger RetrieveTrigger(TriggerKey triggerKey)
         {
-            return (IOperableTrigger) ExecuteWithoutLock( // no locks necessary for read...
+            return ExecuteWithoutLock( // no locks necessary for read...
                                  conn => RetrieveTrigger(conn, triggerKey));
         }
 
@@ -1356,7 +1366,7 @@ namespace Quartz.Impl.AdoJobStore
         public TriggerState GetTriggerState(TriggerKey triggerKey)
         {
             // no locks necessary for read...
-            return (TriggerState) ExecuteWithoutLock(conn => GetTriggerState(conn, triggerKey));
+            return ExecuteWithoutLock(conn => GetTriggerState(conn, triggerKey));
         }
 
         /// <summary>
@@ -1393,7 +1403,7 @@ namespace Quartz.Impl.AdoJobStore
 
                 if (ts.Equals(StatePausedBlocked))
                 {
-                    return TriggerState.Blocked;
+                    return TriggerState.Paused;
                 }
 
                 if (ts.Equals(StateError))
@@ -1478,7 +1488,7 @@ namespace Quartz.Impl.AdoJobStore
 
                 if (!Clustered)
                 {
-                    calendarCache[calName] = calendar; // lazy-cache}
+                    calendarCache[calName] = calendar; // lazy-cache
                 }
             }
             catch (IOException e)
@@ -1522,7 +1532,7 @@ namespace Quartz.Impl.AdoJobStore
         ///</returns>
         public bool RemoveCalendar(string calName)
         {
-            return (bool)ExecuteInLock(LockTriggerAccess, conn => RemoveCalendar(conn, calName));
+            return ExecuteInLock(LockTriggerAccess, conn => RemoveCalendar(conn, calName));
         }
 
         protected virtual bool RemoveCalendar(ConnectionAndTransactionHolder conn,
@@ -1555,11 +1565,11 @@ namespace Quartz.Impl.AdoJobStore
         /// <returns>The desired <see cref="ICalendar" />, or null if there is no match.</returns>
         public ICalendar RetrieveCalendar(string calName)
         {
-            return (ICalendar) ExecuteWithoutLock( // no locks necessary for read...
+            return ExecuteWithoutLock( // no locks necessary for read...
                                    conn => RetrieveCalendar(conn, calName));
         }
 
-       protected virtual ICalendar RetrieveCalendar(ConnectionAndTransactionHolder conn, string calName)
+        protected virtual ICalendar RetrieveCalendar(ConnectionAndTransactionHolder conn, string calName)
         {
             // all calendars are persistent, but we lazy-cache them during run
             // time as long as we aren't running clustered.
@@ -1601,7 +1611,7 @@ namespace Quartz.Impl.AdoJobStore
         public int GetNumberOfJobs()
         {
             // no locks necessary for read...
-            return (int) ExecuteWithoutLock(conn => GetNumberOfJobs(conn));
+            return ExecuteWithoutLock(conn => GetNumberOfJobs(conn));
         }
 
         protected virtual int GetNumberOfJobs(ConnectionAndTransactionHolder conn)
@@ -1622,7 +1632,7 @@ namespace Quartz.Impl.AdoJobStore
         /// </summary>
         public int GetNumberOfTriggers()
         {
-            return (int) ExecuteWithoutLock( // no locks necessary for read...
+            return ExecuteWithoutLock( // no locks necessary for read...
                              conn => GetNumberOfTriggers(conn));
         }
 
@@ -1645,7 +1655,7 @@ namespace Quartz.Impl.AdoJobStore
         public int GetNumberOfCalendars()
         {
             // no locks necessary for read...
-            return (int) ExecuteWithoutLock(conn => GetNumberOfCalendars(conn));
+            return ExecuteWithoutLock(conn => GetNumberOfCalendars(conn));
         }
 
         protected virtual int GetNumberOfCalendars(ConnectionAndTransactionHolder conn)
@@ -1691,6 +1701,32 @@ namespace Quartz.Impl.AdoJobStore
         }
 
         /// <summary>
+        /// Determine whether a <see cref="ICalendar" /> with the given identifier already
+        /// exists within the scheduler.
+        /// </summary>
+        /// <remarks>
+        /// </remarks>
+        /// <param name="calName">the identifier to check for</param>
+        /// <returns>true if a calendar exists with the given identifier</returns>
+        public bool CalendarExists(string calName)
+        {
+            return ExecuteWithoutLock( // no locks necessary for read...
+                              conn => CheckExists(conn, calName));
+        }
+
+        protected bool CheckExists(ConnectionAndTransactionHolder conn, string calName)
+        {
+            try
+            {
+                return Delegate.CalendarExists(conn, calName);
+            }
+            catch (Exception e)
+            {
+                throw new JobPersistenceException("Couldn't check for existence of job: " + e.Message, e);
+            }
+        }
+
+        /// <summary>
         /// Determine whether a <see cref="IJob"/> with the given identifier already
         /// exists within the scheduler.
         /// </summary>
@@ -1700,7 +1736,7 @@ namespace Quartz.Impl.AdoJobStore
         /// <returns>true if a Job exists with the given identifier</returns>
         public bool CheckExists(JobKey jobKey)
         {
-            return (bool) ExecuteWithoutLock( // no locks necessary for read...
+            return ExecuteWithoutLock( // no locks necessary for read...
                               conn => CheckExists(conn, jobKey));
         }
 
@@ -1726,7 +1762,7 @@ namespace Quartz.Impl.AdoJobStore
         /// <returns>true if a Trigger exists with the given identifier</returns>
         public bool CheckExists(TriggerKey triggerKey)
         {
-            return (bool) ExecuteWithoutLock( // no locks necessary for read...
+            return ExecuteWithoutLock( // no locks necessary for read...
                               conn => CheckExists(conn, triggerKey));
         }
 
@@ -1809,9 +1845,9 @@ namespace Quartz.Impl.AdoJobStore
         public IList<string> GetJobGroupNames()
         {
             // no locks necessary for read...
-            return (IList<string>)ExecuteWithoutLock(conn => GetJobGroupNames(conn));
+            return ExecuteWithoutLock(conn => GetJobGroupNames(conn));
         }
-        
+
         protected virtual IList<string> GetJobGroupNames(ConnectionAndTransactionHolder conn)
         {
             IList<string> groupNames;
@@ -1840,7 +1876,7 @@ namespace Quartz.Impl.AdoJobStore
         public IList<string> GetTriggerGroupNames()
         {
             // no locks necessary for read...
-            return (IList<string>)ExecuteWithoutLock(conn => GetTriggerGroupNames(conn));
+            return ExecuteWithoutLock(conn => GetTriggerGroupNames(conn));
         }
 
         protected virtual IList<string> GetTriggerGroupNames(ConnectionAndTransactionHolder conn)
@@ -1871,7 +1907,7 @@ namespace Quartz.Impl.AdoJobStore
         public IList<string> GetCalendarNames()
         {
             // no locks necessary for read...
-            return (IList<string>)ExecuteWithoutLock(conn => GetCalendarNames(conn));
+            return ExecuteWithoutLock(conn => GetCalendarNames(conn));
         }
 
         protected virtual IList<string> GetCalendarNames(ConnectionAndTransactionHolder conn)
@@ -1896,7 +1932,7 @@ namespace Quartz.Impl.AdoJobStore
         public IList<IOperableTrigger> GetTriggersForJob(JobKey jobKey)
         {
             // no locks necessary for read...
-            return (IList<IOperableTrigger>)ExecuteWithoutLock(conn => GetTriggersForJob(conn, jobKey));
+            return ExecuteWithoutLock(conn => GetTriggersForJob(conn, jobKey));
         }
 
         protected virtual IList<IOperableTrigger> GetTriggersForJob(ConnectionAndTransactionHolder conn, JobKey jobKey)
@@ -1958,13 +1994,13 @@ namespace Quartz.Impl.AdoJobStore
         {
             ExecuteInLock(LockTriggerAccess,
                 conn =>
+                {
+                    IList<IOperableTrigger> triggers = GetTriggersForJob(conn, jobKey);
+                    foreach (IOperableTrigger trigger in triggers)
                     {
-                        IList<IOperableTrigger> triggers = GetTriggersForJob(conn, jobKey);
-                        foreach (IOperableTrigger trigger in triggers)
-                        {
-                            PauseTrigger(conn, trigger.Key);
-                        }
-                    });
+                        PauseTrigger(conn, trigger.Key);
+                    }
+                });
         }
 
         /// <summary>
@@ -1974,7 +2010,7 @@ namespace Quartz.Impl.AdoJobStore
         /// <seealso cref="ResumeJobs" />
         public virtual IList<string> PauseJobs(GroupMatcher<JobKey> matcher)
         {
-            return (IList<string>)ExecuteInLock(LockTriggerAccess, conn =>
+            return ExecuteInLock(LockTriggerAccess, conn =>
                 {
                     Collection.ISet<string> groupNames = new Collection.HashSet<string>();
                     Collection.ISet<JobKey> jobNames = GetJobNames(conn, matcher);
@@ -2118,7 +2154,7 @@ namespace Quartz.Impl.AdoJobStore
         /// <seealso cref="PauseJobs" />
         public virtual Collection.ISet<string> ResumeJobs(GroupMatcher<JobKey> matcher)
         {
-            return (Collection.ISet<string>) ExecuteInLock(LockTriggerAccess, conn =>
+            return ExecuteInLock(LockTriggerAccess, conn =>
                 {
                     Collection.ISet<JobKey> jobKeys = GetJobNames(conn, matcher);
                     Collection.ISet<String> groupNames = new Collection.HashSet<string>();
@@ -2142,7 +2178,7 @@ namespace Quartz.Impl.AdoJobStore
         /// <seealso cref="ResumeTriggers(Quartz.Impl.Matchers.GroupMatcher{Quartz.TriggerKey})" />
         public virtual Collection.ISet<string> PauseTriggers(GroupMatcher<TriggerKey> matcher)
         {
-            return (Collection.ISet<string>)ExecuteInLock(LockTriggerAccess, conn => PauseTriggerGroup(conn, matcher));
+            return ExecuteInLock(LockTriggerAccess, conn => PauseTriggerGroup(conn, matcher));
         }
 
         /// <summary>
@@ -2188,7 +2224,7 @@ namespace Quartz.Impl.AdoJobStore
         public Collection.ISet<string> GetPausedTriggerGroups()
         {
             // no locks necessary for read...
-            return (Collection.ISet<string>)ExecuteWithoutLock(conn => GetPausedTriggerGroups(conn));
+            return ExecuteWithoutLock(conn => GetPausedTriggerGroups(conn));
         }
 
         /// <summary> 
@@ -2210,7 +2246,7 @@ namespace Quartz.Impl.AdoJobStore
 
         public virtual IList<string> ResumeTriggers(GroupMatcher<TriggerKey> matcher)
         {
-            return (IList<string>)ExecuteInLock(LockTriggerAccess, conn => ResumeTriggers(conn, matcher));
+            return ExecuteInLock(LockTriggerAccess, conn => ResumeTriggers(conn, matcher));
         }
 
         /// <summary>
@@ -2419,11 +2455,10 @@ namespace Quartz.Impl.AdoJobStore
             Collection.ISet<JobKey> acquiredJobKeysForNoConcurrentExec = new Collection.HashSet<JobKey>();
             const int MaxDoLoopRetry = 3;
             int currentLoopCount = 0;
-            DateTimeOffset? firstAcquiredTriggerFireTime = null;
 
             do
             {
-                currentLoopCount ++;
+                currentLoopCount++;
                 try
                 {
                     IList<TriggerKey> keys = Delegate.SelectTriggerToAcquire(conn, noLaterThan + timeWindow, MisfireTime, maxCount);
@@ -2434,6 +2469,8 @@ namespace Quartz.Impl.AdoJobStore
                         return acquiredTriggers;
                     }
 
+                    DateTimeOffset batchEnd = noLaterThan;
+
                     foreach (TriggerKey triggerKey in keys)
                     {
                         // If our trigger is no longer available, try a new one.
@@ -2442,11 +2479,29 @@ namespace Quartz.Impl.AdoJobStore
                         {
                             continue; // next trigger
                         }
-                        
+
                         // If trigger's job is set as @DisallowConcurrentExecution, and it has already been added to result, then
                         // put it back into the timeTriggers set and continue to search for next trigger.
                         JobKey jobKey = nextTrigger.JobKey;
-                        IJobDetail job = Delegate.SelectJobDetail(conn, jobKey, TypeLoadHelper);
+                        IJobDetail job;
+                        try
+                        {
+                            job = RetrieveJob(conn, jobKey);
+                        }
+                        catch (JobPersistenceException jpe)
+                        {
+                            try
+                            {
+                                Log.Error("Error retrieving job, setting trigger state to ERROR.", jpe);
+                                Delegate.UpdateTriggerState(conn, triggerKey, StateError);
+                            }
+                            catch (Exception ex)
+                            {
+                                Log.Error("Unable to set trigger state to ERROR.", ex);
+                            }
+                            continue;
+                        }
+
                         if (job.ConcurrentExecutionDisallowed)
                         {
                             if (acquiredJobKeysForNoConcurrentExec.Contains(jobKey))
@@ -2457,6 +2512,11 @@ namespace Quartz.Impl.AdoJobStore
                             {
                                 acquiredJobKeysForNoConcurrentExec.Add(jobKey);
                             }
+                        }
+
+                        if (nextTrigger.GetNextFireTimeUtc() > batchEnd)
+                        {
+                            break;
                         }
 
                         // We now have a acquired trigger, let's add to return list.
@@ -2470,11 +2530,16 @@ namespace Quartz.Impl.AdoJobStore
                         nextTrigger.FireInstanceId = GetFiredTriggerRecordId();
                         Delegate.InsertFiredTrigger(conn, nextTrigger, StateAcquired, null);
 
-                        acquiredTriggers.Add(nextTrigger);
-                        if (firstAcquiredTriggerFireTime == null)
+                        if (acquiredTriggers.Count == 0)
                         {
-                            firstAcquiredTriggerFireTime = nextTrigger.GetNextFireTimeUtc();
+                            var now = SystemTime.UtcNow();
+                            var nextFireTime = nextTrigger.GetNextFireTimeUtc().GetValueOrDefault(DateTimeOffset.MinValue);
+                            var max = now > nextFireTime ? now : nextFireTime;
+
+                            batchEnd = max + timeWindow;
                         }
+
+                        acquiredTriggers.Add(nextTrigger);
                     }
 
                     // if we didn't end up with any trigger to fire from that first
@@ -2638,7 +2703,7 @@ namespace Quartz.Impl.AdoJobStore
             }
             catch (Exception e)
             {
-                throw new JobPersistenceException("Couldn't insert fired trigger: " + e.Message, e);
+                throw new JobPersistenceException("Couldn't update fired trigger: " + e.Message, e);
             }
 
             DateTimeOffset? prevFireTime = trigger.GetPreviousFireTimeUtc();
@@ -3141,7 +3206,7 @@ namespace Quartz.Impl.AdoJobStore
                                         new SimpleTriggerImpl(
                                             "recover_" + rec.SchedulerInstanceId + "_" + Convert.ToString(recoverIds++, CultureInfo.InvariantCulture),
                                             SchedulerConstants.DefaultRecoveryGroup, ftRec.FireTimestamp);
-                                    
+
                                     rcvryTrig.JobName = jKey.Name;
                                     rcvryTrig.JobGroup = jKey.Group;
                                     rcvryTrig.MisfireInstruction = MisfireInstruction.SimpleTrigger.FireNow;
@@ -3287,7 +3352,8 @@ namespace Quartz.Impl.AdoJobStore
         {
             if (cth == null)
             {
-                log.Warn("ConnectionAndTransactionHolder passed to RollbackConnection was null, ignoring");
+                // db might be down or similar
+                log.Info("ConnectionAndTransactionHolder passed to RollbackConnection was null, ignoring");
                 return;
             }
 
@@ -3315,7 +3381,7 @@ namespace Quartz.Impl.AdoJobStore
         {
             if (cth == null)
             {
-                log.Error("ConnectionAndTransactionHolder passed to CommitConnection was null, ignoring");
+                log.Debug("ConnectionAndTransactionHolder passed to CommitConnection was null, ignoring");
                 return;
             }
 
@@ -3372,7 +3438,7 @@ namespace Quartz.Impl.AdoJobStore
         /// lockCallback is still executed in a transaction. 
         /// </param>
         /// <param name="txCallback">
-        /// The callback to excute after having acquired the given lock.
+        /// The callback to execute after having acquired the given lock.
         /// </param>
         protected abstract T ExecuteInLock<T>(string lockName, Func<ConnectionAndTransactionHolder, T> txCallback);
 
@@ -3395,7 +3461,7 @@ namespace Quartz.Impl.AdoJobStore
                 }
                 catch (JobPersistenceException jpe)
                 {
-                    if (retry%4 == 0)
+                    if (retry % this.RetryableActionErrorLogThreshold == 0)
                     {
                         schedSignaler.NotifySchedulerListenersError("An error occurred while " + txCallback, jpe);
                     }
@@ -3442,7 +3508,7 @@ namespace Quartz.Impl.AdoJobStore
         /// lockCallback is still executed in a non-managed transaction. 
         /// </param>
         /// <param name="txCallback">
-        /// The callback to excute after having acquired the given lock.
+        /// The callback to execute after having acquired the given lock.
         /// </param>
         /// <param name="txValidator"></param>
         protected T ExecuteInNonManagedTXLock<T>(string lockName, Func<ConnectionAndTransactionHolder, T> txCallback, Func<ConnectionAndTransactionHolder, T, bool> txValidator)
@@ -3517,7 +3583,7 @@ namespace Quartz.Impl.AdoJobStore
         {
             if (cth == null)
             {
-                throw new ArgumentNullException("cth", "Connnection-transaction pair cannot be null");
+                throw new ArgumentNullException("cth", "Connection-transaction pair cannot be null");
             }
 
             if (cth.Transaction != null && cth.Transaction.Connection == null)
@@ -3571,7 +3637,7 @@ namespace Quartz.Impl.AdoJobStore
                 }
                 catch (Exception e)
                 {
-                    if (numFails%4 == 0)
+                    if (numFails % this.jobStoreSupport.RetryableActionErrorLogThreshold == 0)
                     {
                         jobStoreSupport.Log.Error("ClusterManager: Error managing cluster: " + e.Message, e);
                     }
@@ -3659,7 +3725,7 @@ namespace Quartz.Impl.AdoJobStore
                 }
                 catch (Exception e)
                 {
-                    if (numFails%4 == 0)
+                    if (numFails % this.jobStoreSupport.RetryableActionErrorLogThreshold == 0)
                     {
                         jobStoreSupport.Log.Error(
                             "MisfireHandler: Error handling misfires: "
